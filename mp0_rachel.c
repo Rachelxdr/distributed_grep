@@ -11,11 +11,35 @@
 #include <pthread.h>
 #include <errno.h>
 
-#define TARGET "172.17.0.2"
+
 #define PORT "9000"
 #define BACK_LOG 10
 #define MAX_INPUT_SIZE 50
+#define IP_SIZE 20
 #define MAX_OUTPUT_SIZE 500
+
+
+int verify_input(const char* input) {
+    const char delim[3] = "==";
+    char* check = malloc(MAX_INPUT_SIZE);
+    strcpy(check, input);
+    char* cmd = malloc(MAX_INPUT_SIZE);
+    char* ip = malloc(IP_SIZE);
+    cmd = strtok(check, delim);
+    ip = strtok(NULL, delim);
+
+    if (strtok(NULL, delim)) {
+        return 0;
+    }
+    if (!cmd|| !ip) {
+        return 0;
+    }
+    
+    return 1;
+
+}
+
+
 
 void* client_start(void* arg) {
     char* cmd = malloc(MAX_INPUT_SIZE);
@@ -24,7 +48,14 @@ void* client_start(void* arg) {
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
-    int s = getaddrinfo(TARGET, PORT, &hints, &res);
+  
+    const char delim[3] = "==";
+    char* exec_cmd = malloc(MAX_INPUT_SIZE);
+    char* ip = malloc(IP_SIZE);
+    exec_cmd = strtok(cmd, delim);
+    ip = strtok(NULL, delim);
+    
+    int s = getaddrinfo(ip, PORT, &hints, &res);
 
     if (s != 0) {
         fprintf(stderr,"getaddrinfo client: %s\n", gai_strerror(s));
@@ -54,7 +85,7 @@ void* client_start(void* arg) {
         exit(1);
     }
    
-    ssize_t bytes_sent = send(server_fd, cmd, MAX_INPUT_SIZE, 0);
+    ssize_t bytes_sent = send(server_fd, exec_cmd, MAX_INPUT_SIZE, 0);
     
     if (bytes_sent == -1) {
         perror("client send");
@@ -144,8 +175,7 @@ void* server_start(void* arg) {
 
         
         read(client_socket, recv_buffer, MAX_INPUT_SIZE);
-        printf("[DEBUG] %s\n", recv_buffer);
-        
+        printf("[DEBUG] Command received %s\n", recv_buffer);
         FILE* fd = popen(recv_buffer, "r");
         if (!fd) {
             perror("popen failed!");
@@ -181,6 +211,11 @@ int main() {
         size_t len = strlen(stdin_buffer);
         if (stdin_buffer[len - 1] == '\n') {
             stdin_buffer[len - 1] = '\0';
+        }
+        int verify = verify_input(stdin_buffer);
+        if (verify == 0) {
+            printf("[USAGE]: <command>==<target_ip>\n");
+            continue;
         }
         if (strcmp(stdin_buffer, "exit") == 0){
             pthread_join(client, NULL);
