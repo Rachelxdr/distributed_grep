@@ -16,7 +16,7 @@
 #define BACK_LOG 10
 #define MAX_INPUT_SIZE 50
 #define IP_SIZE 20
-#define MAX_OUTPUT_SIZE 500
+#define MAX_OUTPUT_SIZE 1024
 
 
 int verify_input(const char* input) {
@@ -93,10 +93,21 @@ void* client_start(void* arg) {
     }
     char result[MAX_OUTPUT_SIZE];
     ssize_t bytes_received;
-    while ((bytes_received = recv(server_fd, result, MAX_OUTPUT_SIZE, 0)) != 0) {
-        result[bytes_received] = '\0';
-        printf("%s", result);
+    while ((bytes_received = recv(server_fd, result, MAX_OUTPUT_SIZE - 1, 0)) != 0) {
+        // printf("bytes_received: %lu\n", bytes_received);
+        // printf("length of result: %lu\n", strlen(result));
+        // printf("sizeof result: %lu\n", sizeof(result));
+        size_t ret_len = strlen(result);
+        if (result[ret_len - 1] == '\n') {
+            result[ret_len - 1] = '\0';
+        }
+        if (bytes_received == -1) {
+            perror("client receive failed");
+            exit(1);
+        }
+        printf("%s\n", result);
         bzero(result, sizeof(result));
+        // printf("after bzero: %s\n", result);
     }
 
    
@@ -182,13 +193,17 @@ void* server_start(void* arg) {
             exit(1);
         }
         char result[1024];
-        while (fgets(result, 100, fd) != NULL) {
-            ssize_t bytes_sent = send(client_socket, result, strlen(result), 0);
-            if (bytes_sent == -1) {
+        ssize_t bytes_sent;
+        while (fgets(result, 1024, fd) != NULL) {
+            
+            if ( (bytes_sent = send(client_socket, result, strlen(result), 0)) == -1) {
                 perror("server send response failed");
                 exit(1);
             }
+            // printf("bytes_sent: %lu\n", bytes_sent);
+            // printf("result sent: %s\n", result);
         }
+        pclose(fd);
         close(client_socket);
 
     }
