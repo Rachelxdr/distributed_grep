@@ -1,4 +1,5 @@
 #include <netdb.h>
+#include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <stdio.h>
@@ -174,6 +175,20 @@ void* server_start(void* arg) {
     struct sockaddr_in* result_addr = (struct sockaddr_in*) util->ai_addr;
     printf("Server setup completed, sock_fd: %d, internet address: %s, port: %d\n", sock_fd, inet_ntoa(result_addr->sin_addr), ntohs(result_addr->sin_port));
 
+    struct ifaddrs *ifap, *ifa;
+    struct sockaddr_in *sa;
+    char *addr;
+
+    getifaddrs (&ifap);
+    for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr && ifa->ifa_addr->sa_family==AF_INET) {
+            sa = (struct sockaddr_in *) ifa->ifa_addr;
+            addr = inet_ntoa(sa->sin_addr);
+            printf("Interface: %s\tAddress: %s\n", ifa->ifa_name, addr);
+        }
+    }
+
+    freeifaddrs(ifap);
     while(1) {
 
         socklen_t addr_size;
